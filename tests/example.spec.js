@@ -75,10 +75,10 @@ test.describe('Magento Website Tests', () => {
   
       // Tunggu dropdown sorter muncul
       await page.waitForSelector('#sorter', { state: 'visible', timeout: 60000 });
-      
+  
       // Pilih pengurutan berdasarkan harga
       await page.selectOption('#sorter', 'price');
-      
+  
       // Klik tombol untuk mengurutkan dari tertinggi
       await page.waitForSelector('.sorter-action[title="Set Descending Direction"]', {
         state: 'visible',
@@ -88,7 +88,8 @@ test.describe('Magento Website Tests', () => {
   
       // Ambil daftar harga setelah pengurutan tertinggi
       let prices = await getPrices();
-      
+      console.log('Prices after descending sort:', prices);
+  
       // Verifikasi urutan harga dari tertinggi ke terendah
       const sortedPricesDesc = [...prices].sort((a, b) => b - a);
       expect(prices).toEqual(sortedPricesDesc);
@@ -102,18 +103,19 @@ test.describe('Magento Website Tests', () => {
   
       // Ambil daftar harga setelah pengurutan terendah
       prices = await getPrices();
-      
+      console.log('Prices after ascending sort:', prices);
+  
       // Verifikasi urutan harga dari terendah ke tertinggi
       const sortedPricesAsc = [...prices].sort((a, b) => a - b);
       expect(prices).toEqual(sortedPricesAsc);
     } catch (error) {
+      console.error('Error during sorting test:', error);
       // Ambil screenshot jika terjadi error
       await page.screenshot({ path: `sort-error-${Date.now()}.png` });
       throw error;
     }
   });
   
-
   test('3. Verify "Add to Cart" is working correctly', async ({ page }) => {
     // Fungsi helper untuk menunggu dan retry
     async function waitForElementWithRetry(selector, options = {}) {
