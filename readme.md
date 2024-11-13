@@ -34,3 +34,29 @@ The automation covers three main scenarios:
 git clone https://github.com/yourusername/playwrightMagento.git
 cd playwrightMagento
 ```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Install Playwright browsers:
+```bash
+npx playwright install
+```
+
+## Running Tests
+1. Run all tests:
+```bash
+npx playwright test
+```
+
+2. Run tests with UI Mode:
+```bash
+npx playwright test --ui
+```
+
+3. Run tests with UI Mode:
+```bash
+npx playwright test tests/filename.spec.js
+```
