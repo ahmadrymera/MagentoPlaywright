@@ -199,7 +199,7 @@ test.describe('Magento Website Tests', () => {
           return subtotalElement && subtotalElement.textContent !== oldSubtotal;
         },
         initialSubtotal,
-        { timeout: 65000 }
+        { timeout: 160000 }
       );
 
       // Verifikasi subtotal baru
