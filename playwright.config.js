@@ -15,11 +15,9 @@ module.exports = defineConfig({
   
   reporter: 'html',
 
-  /* Meningkatkan timeout global */
-  timeout: 180000, // 3 menit
-  
+  timeout: 120000, // Global timeout
   expect: {
-    timeout: 30000  // Meningkatkan timeout untuk expect assertions
+    timeout: 60000, // Timeout for expect statements
   },
 
   use: {
@@ -27,8 +25,8 @@ module.exports = defineConfig({
     trace: 'on',
 
     /* Meningkatkan timeout untuk navigasi dan aksi */
-    navigationTimeout: 120000,  // 2 menit
-    actionTimeout: 30000,       // 30 detik
+    navigationTimeout: 90000,
+    actionTimeout: 60000,
 
     /* Menambahkan konfigurasi browser untuk menangani website yang lambat */
     launchOptions: {
