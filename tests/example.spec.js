@@ -115,109 +115,115 @@ test.describe('Magento Website Tests', () => {
       throw error;
     }
   });
-  
+
   test('3. Verify "Add to Cart" is working correctly', async ({ page }) => {
-    // Fungsi helper untuk menunggu dan retry
-    async function waitForElementWithRetry(selector, options = {}) {
-      const maxRetries = 3;
-      let retries = 0;
-      
-      while (retries < maxRetries) {
-        try {
-          await page.waitForSelector(selector, { 
-            timeout: 60000,
-            ...options 
-          });
-          return;
-        } catch (error) {
-          retries++;
-          if (retries === maxRetries) throw error;
-          // Tunggu sebentar sebelum retry
-          await page.waitForTimeout(5000);
-        }
+  // Fungsi helper untuk menunggu loading mask menghilang
+  async function waitForLoadingMaskToDisappear(timeout = 30000) {
+    try {
+      await page.waitForSelector('.loading-mask', { state: 'hidden', timeout });
+    } catch (error) {
+      console.log('Loading mask timeout or not found');
+    }
+  }
+
+  // Fungsi helper untuk menunggu dan retry dengan penanganan loading
+  async function waitAndClick(selector, options = {}) {
+    await page.waitForSelector(selector, { state: 'visible', timeout: 60000, ...options });
+    await waitForLoadingMaskToDisappear();
+    await page.click(selector);
+  }
+
+  // Fungsi helper untuk navigasi dengan retry
+  async function navigateWithRetry(url, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await page.goto(url, { timeout: 120000, waitUntil: 'domcontentloaded' });
+        await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
+        return;
+      } catch (error) {
+        console.log(`Navigation attempt ${attempt} failed: ${error.message}`);
+        if (attempt === maxRetries) throw error;
+        await page.waitForTimeout(5000);
       }
     }
+  }
 
-    try {
-      // Buka halaman produk jacket dengan networkidle
-      await page.goto('https://magento.softwaretestingboard.com/men/tops-men/jackets-men.html', {
-        waitUntil: 'networkidle',
-        timeout: 90000
-      });
-      
-      // Tunggu dan klik produk pertama
-      await waitForElementWithRetry('.product-item-link:first-child');
-      await page.click('.product-item-link:first-child');
+  try {
+    // 1. Buka halaman produk jacket
+    await navigateWithRetry('https://magento.softwaretestingboard.com/men/tops-men/jackets-men.html');
+    await waitForLoadingMaskToDisappear(60000);
+    
+    // 2. Pilih produk pertama
+    await waitAndClick('.product-item-link:first-child');
+    await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
+    await waitForLoadingMaskToDisappear();
 
-      // Tunggu halaman detail produk
-      await page.waitForLoadState('networkidle');
+    // 3. Pilih ukuran dan warna
+    await waitAndClick('.swatch-option.text[option-label="M"]');
+    await waitAndClick('.swatch-option.color:first-child');
+    await waitForLoadingMaskToDisappear();
 
-      // Pilih ukuran dengan retry
-      await waitForElementWithRetry('.swatch-option.text[option-label="M"]');
-      await page.click('.swatch-option.text[option-label="M"]');
+    // 4. Tambahkan ke keranjang
+    await waitAndClick('#product-addtocart-button');
 
-      // Pilih warna dengan retry
-      await waitForElementWithRetry('.swatch-option.color:first-child');
-      await page.click('.swatch-option.color:first-child');
+    // 5. Verifikasi notifikasi "Add to cart"
+    const successMessage = await page.waitForSelector('.message-success', {
+      state: 'visible',
+      timeout: 60000
+    });
+    expect(await successMessage.textContent()).toContain('You added');
 
-      // Tambah ke cart
-      await waitForElementWithRetry('#product-addtocart-button');
-      await page.click('#product-addtocart-button');
+    // 6. Tunggu sebentar sebelum membuka cart
+    await page.waitForTimeout(5000);
+    
+    // Buka mini cart
+    await waitAndClick('.action.showcart');
+    await waitForLoadingMaskToDisappear();
+    
+    // Tunggu dan klik view cart
+    await waitAndClick('.action.viewcart');
+    await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
+    await waitForLoadingMaskToDisappear(60000);
 
-      // Verifikasi pesan sukses dengan timeout yang lebih lama
-      await waitForElementWithRetry('.message-success', { timeout: 65000 });
-      const successMessage = await page.textContent('.message-success');
-      expect(successMessage).toContain('You added');
+    // 7. Verifikasi isi keranjang belanja
+    const cartItemDetails = await page.textContent('.item-info');
+    expect(cartItemDetails).toContain('M');
 
-      // Buka cart dengan retry
-      await waitForElementWithRetry('.action.showcart');
-      await page.click('.action.showcart');
-      
-      await waitForElementWithRetry('.action.viewcart');
-      await page.click('.action.viewcart');
+    // 8. Update jumlah
+    const qtyInput = await page.waitForSelector('input.qty', { timeout: 60000 });
+    await qtyInput.click();
+    await qtyInput.fill('2');
+    
+    // Catat subtotal awal
+    const initialSubtotal = await page.textContent('.subtotal .price');
 
-      // Tunggu halaman cart
-      await page.waitForLoadState('networkidle');
-      await waitForElementWithRetry('.cart-container');
+    // Klik update dengan penanganan loading
+    await waitAndClick('button[name="update_cart_action"][value="update_qty"]');
+    await waitForLoadingMaskToDisappear(60000);
 
-      // Verifikasi detail produk
-      const cartItemDetails = await page.textContent('.item-info');
-      expect(cartItemDetails).toContain('M');
+    // Tunggu perubahan subtotal
+    await page.waitForFunction(
+      (oldSubtotal) => {
+        const newSubtotal = document.querySelector('.subtotal .price')?.textContent;
+        return newSubtotal && newSubtotal !== oldSubtotal;
+      },
+      initialSubtotal,
+      { timeout: 90000 }
+    );
 
-      // Update quantity dengan retry
-      await waitForElementWithRetry('input.qty');
-      const initialSubtotalElement = await page.waitForSelector('.subtotal .price');
-      const initialSubtotal = await initialSubtotalElement.textContent();
+    // Verifikasi subtotal baru
+    await page.waitForTimeout(5000); // Tunggu update selesai
+    const unitPrice = parseFloat((await page.textContent('.price-excluding-tax .price')).replace(/[^0-9.]/g, ''));
+    const newSubtotal = parseFloat((await page.textContent('.subtotal .price')).replace(/[^0-9.]/g, ''));
+    const expectedTotal = unitPrice * 2;
+    
+    expect(Math.abs(newSubtotal - expectedTotal)).toBeLessThan(0.01);
 
-      await page.fill('input.qty', '2');
-      await page.click('button[name="update_cart_action"][value="update_qty"]');
-
-      // Tunggu perubahan subtotal dengan timeout yang lebih lama
-      await page.waitForFunction(
-        (oldSubtotal) => {
-          const subtotalElement = document.querySelector('.subtotal .price');
-          return subtotalElement && subtotalElement.textContent !== oldSubtotal;
-        },
-        initialSubtotal,
-        { timeout: 160000 }
-      );
-
-      // Verifikasi subtotal baru
-      const priceElement = await page.waitForSelector('.price-excluding-tax .price');
-      const priceText = await priceElement.textContent();
-      const unitPrice = parseFloat(priceText.replace('$', ''));
-
-      const updatedSubtotalElement = await page.waitForSelector('.subtotal .price');
-      const updatedSubtotalText = await updatedSubtotalElement.textContent();
-      const newSubtotal = parseFloat(updatedSubtotalText.replace('$', ''));
-      
-      const expectedTotal = unitPrice * 2;
-      expect(Math.abs(newSubtotal - expectedTotal)).toBeLessThan(0.01);
-
-    } catch (error) {
-      // Ambil screenshot jika test gagal
-      await page.screenshot({ path: `failure-${Date.now()}.png` });
-      throw error;
-    }
-  });
+    console.log('Test berhasil: Add to Cart berfungsi dengan benar');
+  } catch (error) {
+    console.error('Error during test:', error);
+    await page.screenshot({ path: `add-to-cart-failure-${Date.now()}.png`, fullPage: true });
+    throw error;
+  }
+});
 });
